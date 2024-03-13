@@ -29,13 +29,14 @@ class NACCModel(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
         )
 
         # comparison layer
-        self.cmp = nn.Linear(hidden, 2)
+        self.cmp = nn.Linear(hidden*2, 2)
 
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(1)
@@ -67,7 +68,7 @@ class NACCModel(nn.Module):
         latent_left = self.encodify(l, lm, detach_transformer)
         latent_right = self.encodify(r, rm, detach_transformer)
 
-        combined = latent_left + latent_right
+        combined = torch.cat([latent_left, latent_right])
 
         # ffnn for comparison
         comparison = self.softmax(self.cmp(combined))

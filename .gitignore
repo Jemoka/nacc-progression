@@ -1,0 +1,20 @@
+/.DS_Store
+/investigator_nacc57.csv
+/preliminary toy figures/
+/*.pdf
+/correlate.csv
+/correlate_full.csv
+env
+models
+wandb
+/attention_control.csv
+/attention_dementia.csv
+/attention_mci.csv
+/*.py#
+/figures/
+/testing/#transformer_validate.py#
+/testing/.DS_Store
+*.pyc
+/attention_analysis_data.bin
+/pretrain/.DS_Store
+pretrain

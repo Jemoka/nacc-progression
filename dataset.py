@@ -91,25 +91,40 @@ class NACCLongitudinalDataset(Dataset):
         # data.current_target.value_counts()
 
         #### FUTURE PREDICTION TARGETS ####
-        def process_participant(part):
+        def process_participant(part, converted=False):
             if len(part) <= 1:
                 return None
             sorted = part.sort_values(by=["NACCAGE"])
-            possible_crops = list(range(len(sorted)))[1:]
-            crops = R.sample(possible_crops, R.randint(1, len(possible_crops)))
+            crops = list(range(len(sorted)))[1:]
+            # crops = R.sample(possible_crops, R.randint(1, len(possible_crops)))
 
-            res = [(part.iloc[:j], part.iloc[j].current_target) for j in crops]
+            if converted:
+                res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
+                        sorted.iloc[:j].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                    if sorted.iloc[j-1].current_target > sorted.iloc[j].current_target]
+            else:
+                res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
+                        sorted.iloc[:j].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                    if sorted.iloc[j-1].current_target <= sorted.iloc[j].current_target]
+
+            if len(res) == 0:
+                return None
 
             return res
 
         data = data[features+["current_target", "NACCID", "NACCAGE"]]
         data = data.dropna()
 
-        res_data = data.groupby(data.NACCID).apply(process_participant)
-
+        res_data_converted = data.groupby(data.NACCID).apply(lambda x:process_participant(x, True))
+        res_data_not_converted = data.groupby(data.NACCID).apply(lambda x:process_participant(x, False))
         # filter out for blanks
-        res_data = [j for i in res_data if i for j in i]
+        res_data_converted = [j for i in res_data_converted if i for j in i]
+        res_data_not_converted = [j for i in res_data_not_converted if i for j in i]
 
+        # balance for counts of each
+        data_count = min(len(res_data_converted), len(res_data_not_converted))
+        res_data = (R.sample(res_data_converted, data_count) +
+                    R.sample(res_data_not_converted, data_count))
 
         #### TRAIN_VAL SPLIT ####
         kf = KFold(n_splits=10, shuffle=True, random_state=7)
@@ -128,9 +143,11 @@ class NACCLongitudinalDataset(Dataset):
         # crop the data for validatino
         self.val_data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
         self.val_targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
+        self.val_temporal = [i[2] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
 
         self.data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
         self.targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
+        self.temporal = [i[2] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
 
     def __process_sample(self, data):
         data = data.copy()
@@ -139,15 +156,13 @@ class NACCLongitudinalDataset(Dataset):
         # so, we encode those values as 0 in the FEATURE
         # column, and encode another feature of "not-found"ness
         data_found = (data > 80) | (data < 0)
-        data[data_found] = 0
+        data.iloc[data_found] = 0
         # then, the found-ness becomes a mask
         data_found_mask = data_found
-        # don't attend to current target 
-        data_found_mask[-1] = True
 
         return torch.tensor(data).float()/30, torch.tensor(data_found_mask).bool()
 
-    def __process(self, data, target, index=None):
+    def __process(self, data, target, temporal, index=None):
         # iterate through each column of the data to 
         datas, masks = zip(*[self.__process_sample(i) for _, i in data.iterrows()])
         datas = torch.stack(datas)
@@ -169,25 +184,27 @@ class NACCLongitudinalDataset(Dataset):
         data_var_mask = masks.clone() 
         data_var_mask[:, time_invariance] = True
 
-        # if it is a sample with no tangible data
-        # well give up and get another sample:
-        if sum(~data_inv_mask) == 0:
-            print("All-Zero found in a sample in the dataset!")
+        # filter out any data which is all zero
+        var_mask = ~data_var_mask.all(dim=1)
+        data_var = data_var[var_mask]
+        data_var_mask = data_var_mask[var_mask]
         
         # seed the one-hot vector
         one_hot_target = [0 for _ in range(3)]
         # and set it
         one_hot_target[int(target)] = 1
+        temporal = torch.tensor(temporal.tolist()).float()[var_mask]
 
-        return data_inv, data_inv_mask, data_var, data_var_mask, one_hot_target
+        return data_inv, data_inv_mask, data_var, data_var_mask, temporal, one_hot_target
 
     def __getitem__(self, index):
         # index the data
         data = self.data[index]
         target = self.targets[index]
+        temporal = self.temporal[index]
 
-        di, dim, dv, dvm, out = self.__process(data, target, index)
-        return di, dim, dv, dvm, out
+        di, dim, dv, dvm, tp, out = self.__process(data, target, temporal, index)
+        return di, dim, dv, dvm, tp, out
 
     @functools.cache
     def val(self):
@@ -202,26 +219,31 @@ class NACCLongitudinalDataset(Dataset):
         for index in tqdm(range(len(self.val_data))):
             try:
                 dataset.append(self.__process(self.val_data[index],
-                                              self.val_targets[index]))
+                                              self.val_targets[index],
+                                              self.val_temporal[index]))
             except ValueError:
                 continue # all zero ignore
 
         # return parts
-        di, dim, dv, dvm, out = zip(*dataset)
-        sf = lambda x:torch.stack(x).float()
-        sb = lambda x:torch.stack(x).bool()
+        di, dim, dv, dvm, tp, out = zip(*dataset)
 
         # process already divides by 30; don't do it twice
-        return di, dim, dv, dvm, out
+        return di, dim, dv, dvm, tp, out
 
     def __len__(self):
         return len(self.data)
 
+
+
 # d = NACCLongitudinalDataset("./investigator_nacc57.csv",
 #                             "./features/combined")
 # vd = d.val()
+# d[0]
+# vd[-2]
 
-# vd[0]
+
+# torch.tensor(vd[-1]).argmax(dim=1)
+
 # r = d[0]
 # r 
 

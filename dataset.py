@@ -26,13 +26,13 @@ import glob
 import math
 import random
 import pickle
-pd.options.mode.copy_on_write = True
 
 tqdm.pandas()
 
-r = random.Random(7)
-
+import random
 bound=(1,3)
+
+R = random.Random(7)
 
 # a = pd.read_csv("../investigator_nacc57.csv")
 # len(a[a.NACCETPR == 88])
@@ -40,10 +40,11 @@ bound=(1,3)
 # len(a[(a.NACCETPR == 1) & (a.NACCTMCI == 1)])
 # len(a[(a.NACCETPR == 1) & (a.NACCTMCI == 2)])
 
-# loading data
-class NACCCmpDataset(Dataset):
+class NACCLongitudinalDataset(Dataset):
 
-    def __init__(self, data_path, feature_path, target_indicies=[1,3,4], fold=0):
+    def __init__(self, data_path, feature_path,
+              # skipping 2 impaired because of labeling inconsistency
+                 target_indicies=[1,3,4], fold=0):
         """The NeuralPsycology Dataset
 
         Arguments:
@@ -53,11 +54,10 @@ class NACCCmpDataset(Dataset):
         [target_indicies] ([int]): how to translate the output key values
                                    to the indicies of an array
         [fold] (int): the n-th fold to select
-        
         """
 
         # initialize superclass
-        super(NACCCmpDataset, self).__init__()
+        super(NACCLongitudinalDataset, self).__init__()
 
         #### OPS ####
         # load the data
@@ -88,20 +88,28 @@ class NACCCmpDataset(Dataset):
 
         # drop the columns that are irrelavent to us (i.e. not the labels above)
         data = data[data.current_target != -1]
+        # data.current_target.value_counts()
 
-        #### TARGET BALANCING ####
-        # crop the data to ensure balanced classes
-        # TODO better dataaug that could exist?
-        # we crop by future target, because that ensures
-        # that results in more balanced classes for current
-        # target even if we are nox explicitly balancing it
-        min_class = min(data.current_target.value_counts())
+        #### FUTURE PREDICTION TARGETS ####
+        def process_participant(part):
+            if len(part) <= 1:
+                return None
+            sorted = part.sort_values(by=["NACCAGE"])
+            possible_crops = list(range(len(sorted)))[1:]
+            crops = R.sample(possible_crops, R.randint(1, len(possible_crops)))
 
-        data = pd.concat([data[data.current_target==0].sample(n=min_class, random_state=7),
-                          data[data.current_target==1].sample(n=min_class, random_state=7),
-                          data[data.current_target==2].sample(n=min_class, random_state=7)]).sample(frac=1, random_state=7)
+            res = [(part.iloc[:j], part.iloc[j].current_target) for j in crops]
 
-        self.raw = data
+            return res
+
+        data = data[features+["current_target", "NACCID", "NACCAGE"]]
+        data = data.dropna()
+
+        res_data = data.groupby(data.NACCID).apply(process_participant)
+
+        # filter out for blanks
+        res_data = [j for i in res_data if i for j in i]
+
 
         #### TRAIN_VAL SPLIT ####
         kf = KFold(n_splits=10, shuffle=True, random_state=7)
@@ -117,73 +125,16 @@ class NACCCmpDataset(Dataset):
         self._num_features = len(features)
         # we add 1 for dummy variable used for fine tuning later
 
-        # calculate next measurement age
-        data = data.sort_values(by=["NACCAGE"])
-
-        # subtract by the root no get age
-        def subtract_by_root(item):
-            return { "progression": item.NACCAGE-data[data.NACCID == item.NACCID].sort_values(by="NACCAGE").iloc[0].NACCAGE,
-                     "id": item.NACCID }
-        progression_metadata = data.apply(subtract_by_root, axis=1)
-        progression_metadata = pd.DataFrame(progression_metadata.tolist(),
-                                            index=progression_metadata.index)
-        progression_metadata["id_num"] = progression_metadata.id.apply(lambda x:int(x[4:]))
-
-        # stitch it into data
-        data["DUMMY"] = np.random.randint(1, 3, data.shape[0])
-        data = data[features+["DUMMY", "current_target", "NACCID", "NACCAGE"]]
-        # data = data.dropna()
-
-        def extract_pair(grp):
-            if len(grp) == 1:
-                return None
-            res = []
-            label = []
-            for i in range(0, len(grp)-1):
-                next_sample = r.randint(i, len(grp)-1)
-                smp = grp.iloc[[i, next_sample]][features]
-                if sum((smp.iloc[0] != smp.iloc[1]).to_list()) > 0:
-                    if (r.choice([0,1])):
-                        res.append(smp.iloc[::-1])
-                        label.append(True)
-                    else:
-                        res.append(smp)
-                        label.append(False)
-
-            return res, label
-        # sort the data by age and group, making pairwise 
-        pairs = data.sort_values(["NACCAGE"]).groupby("NACCID").apply(extract_pair)
-
         # crop the data for validatino
-        val_raw = pairs[pairs.index.isin(test_participants)].tolist()
-        train_raw = pairs[pairs.index.isin(train_participants)].tolist()
+        self.val_data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
+        self.val_targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
 
-        # combine to obtain raw data
-        val_data, val_targets = zip(*[i for i in val_raw if i != None])
-        train_data, train_targets = zip(*[i for i in train_raw if i != None])
+        self.data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
+        self.targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
 
-        self.val_data = [j for i in val_data for j in i]
-        self.val_targets = [j for i in val_targets for j in i]
-
-        self.train_data = [j for i in train_data for j in i]
-        self.train_targets = [j for i in train_targets for j in i]
-
-        self.val_raw = data[data.NACCID.isin(test_participants)][features+["NACCID", "NACCAGE"]]
-        self.train_raw = data[data.NACCID.isin(train_participants)][features+["NACCID", "NACCAGE"]]
-
-        # self.val_targets = data[data.NACCID.isin(test_participants)].current_target
-        # self.val_data_raw = data[data.NACCID.isin(test_participants)]
-        # self.val_data_prog = progression_metadata[progression_metadata.id.isin(test_participants)]
-
-        # self.data = data[data.NACCID.isin(train_participants)][features]
-        # self.targets = data[data.NACCID.isin(train_participants)].current_target
-        # self.data_raw = data[data.NACCID.isin(train_participants)]
-        # self.data_prog = progression_metadata[progression_metadata.id.isin(train_participants)]
-
-        # self.features = features
-
-    def __process(self, data):
-        # as a test, we report results without masking
+    def __process_sample(self, data):
+        data = data.copy()
+        # the discussed dataprep
         # if a data entry is <0 or >80, it is "not found"
         # so, we encode those values as 0 in the FEATURE
         # column, and encode another feature of "not-found"ness
@@ -191,42 +142,52 @@ class NACCCmpDataset(Dataset):
         data[data_found] = 0
         # then, the found-ness becomes a mask
         data_found_mask = data_found
-        # don't attend to dummy 
+        # don't attend to current target 
         data_found_mask[-1] = True
-
-        # if it is a sample with no tangible data
-        # well give up and get another sample:
-        if sum(~data_found_mask) == 0:
-            # if not index:
-            raise ValueError("All-Zero Found!")
-            # indx = random.randint(2,5)
-            # if index-indx <= 0:
-            #     return self[index+indx]
-            # else:
-            #     return self[index-indx]
-        
-        # # seed the one-hot vector
-        # one_hot_target = [0 for _ in range(3)]
-        # # and set it
-        # one_hot_target[target] = 1
 
         return torch.tensor(data).float()/30, torch.tensor(data_found_mask).bool()
 
+    def __process(self, data, target, index=None):
+        # iterate through each column of the data to 
+        datas, masks = zip(*[self.__process_sample(i) for _, i in data.iterrows()])
+        datas = torch.stack(datas)
+        masks = torch.stack(masks)
+
+        # check if all elements of the tensor are all equal to each other across time
+        # this is the "time invariant" samples
+        time_invariance = torch.any(datas.T.roll(shifts=(0,1), dims=(0,1)) == datas.T, dim=1)
+
+        # get the time invariant samples as a seperate set (data 1)
+        data_inv = datas[0].clone()
+        data_inv_mask = masks[0].clone()
+        data_inv[~time_invariance] = 0.00
+        data_inv_mask[~time_invariance] = True
+
+        # and mask out the time invariant data from timeseries
+        data_var = datas.clone()
+        data_var[:, time_invariance] = 0.00
+        data_var_mask = masks.clone() 
+        data_var_mask[:, time_invariance] = True
+
+        # if it is a sample with no tangible data
+        # well give up and get another sample:
+        if sum(~data_inv_mask) == 0:
+            print("All-Zero found in a sample in the dataset!")
+        
+        # seed the one-hot vector
+        one_hot_target = [0 for _ in range(3)]
+        # and set it
+        one_hot_target[int(target)] = 1
+
+        return data_inv, data_inv_mask, data_var, data_var_mask, one_hot_target
+
     def __getitem__(self, index):
         # index the data
-        data = self.train_data[index].copy()
-        tgt = self.train_targets[index]
+        data = self.data[index]
+        target = self.targets[index]
 
-        target = [0 for _ in range(2)]
-        if tgt:
-            target[1] = 1
-        else:
-            target[0] = 1
-
-        d1, m1 = self.__process(data.iloc[0])
-        d2, m2 = self.__process(data.iloc[1])
-
-        return torch.stack([d1, d2]), torch.stack([m1, m2]), torch.tensor(target)
+        di, dim, dv, dvm, out = self.__process(data, target, index)
+        return di, dim, dv, dvm, out
 
     @functools.cache
     def val(self):
@@ -239,35 +200,34 @@ class NACCCmpDataset(Dataset):
 
         # get it
         for index in tqdm(range(len(self.val_data))):
-            data = self.val_data[index].copy()
-            tgt = self.val_targets[index]
-
-            target = [0 for _ in range(2)]
-            if tgt:
-                target[1] = 1
-            else:
-                target[0] = 1
-
-            d1, m1 = self.__process(data.iloc[0])
-            d2, m2 = self.__process(data.iloc[1])
-
             try:
-                dataset.append((torch.stack([d1, d2]), torch.stack([m1, m2]), torch.tensor(target)))
+                dataset.append(self.__process(self.val_data[index],
+                                              self.val_targets[index]))
             except ValueError:
                 continue # all zero ignore
 
         # return parts
-        inp, mask, target, = zip(*dataset)
+        di, dim, dv, dvm, out = zip(*dataset)
+        sf = lambda x:torch.stack(x).float()
+        sb = lambda x:torch.stack(x).bool()
 
         # process already divides by 30; don't do it twice
-        return (torch.stack(inp).float(), torch.stack(mask).bool(),
-                torch.stack(target).float())
+        return di, dim, dv, dvm, out
 
     def __len__(self):
-        return len(self.train_data)
+        return len(self.data)
 
-# d = NACCCmpDataset("./investigator_nacc57.csv", "./features/combined")
-# tmp = d.val()
-# tmp[0].shape
-# tmp[2].shape
-# # sum(d.train_targets)/len(d.train_targets)
+# d = NACCLongitudinalDataset("./investigator_nacc57.csv",
+#                             "./features/combined")
+# vd = d.val()
+
+# vd[0]
+# r = d[0]
+# r 
+
+# d[123][0][d[123][1]]
+# d.val()
+# len(d)
+# # len(d)
+# d[10][0].shape
+

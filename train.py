@@ -190,11 +190,7 @@ for epoch in range(EPOCHS):
         batch = [i.to(DEVICE) for i in batch]
 
         # run with actual backprop
-        try:
-            output = model(*batch)
-        except RuntimeError:
-            optimizer.zero_grad()
-            continue
+        output = model(*batch)
 
         # backprop
         try:

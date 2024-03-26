@@ -121,6 +121,8 @@ model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
 optimizer = AdamW(model.parameters(), lr=LR, weight_decay=1e-5)
 # scheduler = StepLR(optimizer, step_size=8, gamma=0.75)
 
+run.watch(model)
+
 
 # get a random validation batch
 def val_batch():

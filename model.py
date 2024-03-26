@@ -43,9 +43,11 @@ class NACCTemporal(nn.Module):
         # transformerify
         net = self.encoder(xs.transpose(0,1),
                            src_key_padding_mask=temporal_mask).transpose(0,1)
+        aggregate = net.mean(dim=1)
+        aggregate[temporal_mask.all(dim=1)] = 0.0
 
         # average the sequence information
-        return net.mean(dim=1)
+        return aggregate
         
 class NACCFeatureExtraction(nn.Module):
 

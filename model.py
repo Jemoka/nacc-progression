@@ -39,12 +39,16 @@ class NACCTemporal(nn.Module):
 
         # add it to the input
         net = xs + embs
+
+        # create backplate
+        shape = xs.shape
+        backplate = torch.zeros((shape[0], shape[-1])).to(xs.device)
         
-        # transformerify
-        net = self.encoder(xs.transpose(0,1),
-                           src_key_padding_mask=temporal_mask).transpose(0,1)
+        # transformerify only the available part
+        net = self.encoder(xs[~temporal_mask.all(dim=1)].transpose(0,1),
+                           src_key_padding_mask=temporal_mask[~temporal_mask.all(dim=1)]).transpose(0,1)
         aggregate = net.mean(dim=1)
-        aggregate[temporal_mask.all(dim=1)] = 0.0
+        backplate[~temporal_mask.all(dim=1)] = aggregate
 
         # average the sequence information
         return aggregate

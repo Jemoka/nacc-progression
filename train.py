@@ -227,16 +227,10 @@ try:
 
         # append to talley
         logits = np.append(logits, output["logits"].detach().cpu().numpy(), 0)
-        labels = np.append(labels, i[2].numpy(), 0)
-
-        if TASK == "future":
-            # current targets used to generate comparative graph
-            current_target = F.one_hot((i[0][:,-1]*30).to(int), num_classes=3)
-            current_targets = np.append(current_targets, current_target, 0)
-
-        torch.cuda.empty_cache()
+        labels = np.append(labels, i[-1].numpy(), 0)
 except:
     breakpoint()
+
 
 try:
     prec_recc, roc, cm, acc = tensor_metrics(logits, labels)
@@ -258,9 +252,6 @@ try:
                  "val_roc_unchanged": roc_uc,
                  "val_acc_unchanged": acc_uc})
 
-
-
-    # model.train()
 except ValueError:
     breakpoint()
 

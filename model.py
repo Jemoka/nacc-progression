@@ -138,7 +138,7 @@ class NACCModel(nn.Module):
         temporal_features = self.temporal(temporal_features, timestamps, padding_mask)
 
         # fuse together and postprocess with a FFNN
-        net = self.ffnn(temporal_features + inv_features)
+        net = self.ffnn(temporal_features.nan_to_num(0) + inv_features)
 
         loss = None
         if labels is not None:

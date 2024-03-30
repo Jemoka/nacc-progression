@@ -44,17 +44,17 @@ CONFIG = {
     "fold": 0,
     # "featureset": "neuralpsych-v2",
     "featureset": "combined",
-    "batch_size": 32,
-    "lr": 0.0001,
+    "batch_size": 16,
+    "lr": 1e-5,
     "epochs": 55,
 
     "nlayers": 3,
-    "hidden": 128,
+    "hidden": 512,
 }
 
 
 ONLINE = False
-# ONLINE = True
+ONLINE = True
 
 run = wandb.init(project="nacc-temporal",
                  entity="jemoka", config=CONFIG, mode=("online" if ONLINE else "disabled"))
@@ -196,7 +196,8 @@ for epoch in range(EPOCHS):
         try:
             output["loss"].backward()
         except RuntimeError:
-            breakpoint()
+            optimizer.zero_grad()
+            continue
         optimizer.step()
         optimizer.zero_grad()
 
@@ -234,20 +235,6 @@ try:
              "val_confusion": cm,
              "val_roc": roc,
              "val_acc": acc})
-    if TASK == "future":
-        (prec_recc_c, roc_c, cm_c, acc_c), (prec_recc_uc, roc_uc, cm_uc, acc_uc) = future_metrics(logits, labels,
-                                                                                                  current_targets)
-
-        run.log({"val_prec_recc_changed": prec_recc_c,
-                 "val_confusion_changed": cm_c,
-                 "val_roc_changed": roc_c,
-                 "val_acc_changed": acc_c})
-
-        run.log({"val_prec_recc_unchanged": prec_recc_uc,
-                 "val_confusion_unchanged": cm_uc,
-                 "val_roc_unchanged": roc_uc,
-                 "val_acc_unchanged": acc_uc})
-
 except ValueError:
     breakpoint()
 

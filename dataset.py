@@ -122,9 +122,10 @@ class NACCLongitudinalDataset(Dataset):
         res_data_not_converted = [j for i in res_data_not_converted if i for j in i]
 
         # balance for counts of each
-        data_count = min(len(res_data_converted), len(res_data_not_converted))
-        res_data = (R.sample(res_data_converted, data_count) +
-                    R.sample(res_data_not_converted, data_count))
+        # data_count = min(len(res_data_converted), len(res_data_not_converted))
+        # res_data = (R.sample(res_data_converted, data_count) +
+                    # R.sample(res_data_not_converted, data_count))
+        res_data = res_data_converted+res_data_not_converted
 
         #### TRAIN_VAL SPLIT ####
         kf = KFold(n_splits=10, shuffle=True, random_state=7)

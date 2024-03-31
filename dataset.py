@@ -127,6 +127,29 @@ class NACCLongitudinalDataset(Dataset):
                     # R.sample(res_data_not_converted, data_count))
         res_data = res_data_converted+res_data_not_converted
 
+        # compute sample of each type
+        control_samples = []
+        mci_samples = []
+        dementia_samples = []
+
+        for elem in res_data:
+            i,j,k = elem
+            if j == 0:
+                control_samples.append((i,j, k))
+            elif j == 1:
+                mci_samples.append((i,j, k))
+            elif j == 2:
+                dementia_samples.append((i,j,k))
+
+        # min elements to sample from each class
+        num_samples = min(len(mci_samples),
+                          len(dementia_samples),
+                          len(control_samples))
+        res_data = (R.sample(mci_samples, num_samples) +
+                            R.sample(dementia_samples, num_samples) +
+                            R.sample(control_samples, num_samples))
+        R.shuffle(res_data)
+
         #### TRAIN_VAL SPLIT ####
         kf = KFold(n_splits=10, shuffle=True, random_state=7)
 
@@ -235,9 +258,9 @@ class NACCLongitudinalDataset(Dataset):
         return len(self.data)
 
 
-
 # d = NACCLongitudinalDataset("./investigator_nacc57.csv",
 #                             "./features/combined")
+# len(d)
 # vd = d.val()
 # d[0]
 # vd[-2]

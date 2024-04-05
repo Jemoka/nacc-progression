@@ -72,8 +72,8 @@ FEATURESET = config.featureset
 # initialize the device
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
-# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv",
-#                                   f"./features/{FEATURESET}", fold=FOLD)
+dataset = NACCLongitudinalDataset("./investigator_nacc57.csv",
+                                  f"./features/{FEATURESET}", fold=FOLD)
 
 def collate_fn(data):
     di, dim, dv, dvm, tp, tm, out = zip(*data)

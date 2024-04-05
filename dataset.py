@@ -100,11 +100,11 @@ class NACCLongitudinalDataset(Dataset):
 
             if converted:
                 res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
-                        sorted.iloc[:j].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
                     if sorted.iloc[j-1].current_target > sorted.iloc[j].current_target]
             else:
                 res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
-                        sorted.iloc[:j].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
                     if sorted.iloc[j-1].current_target <= sorted.iloc[j].current_target]
 
             if len(res) == 0:
@@ -217,9 +217,10 @@ class NACCLongitudinalDataset(Dataset):
         one_hot_target = [0 for _ in range(3)]
         # and set it
         one_hot_target[int(target)] = 1
-        temporal = torch.tensor(temporal.tolist()).float()[var_mask]
+        times = torch.tensor(temporal.tolist()).float()
+        temporal = times[:-1][var_mask]
 
-        return data_inv, data_inv_mask, data_var, data_var_mask, temporal, one_hot_target
+        return data_inv, data_inv_mask, data_var, data_var_mask, temporal, times[-1], one_hot_target
 
     def __getitem__(self, index):
         # index the data
@@ -227,8 +228,8 @@ class NACCLongitudinalDataset(Dataset):
         target = self.targets[index]
         temporal = self.temporal[index]
 
-        di, dim, dv, dvm, tp, out = self.__process(data, target, temporal, index)
-        return di, dim, dv, dvm, tp, out
+        di, dim, dv, dvm, tp,tm, out = self.__process(data, target, temporal, index)
+        return di, dim, dv, dvm, tp,tm, out
 
     @functools.cache
     def val(self):
@@ -249,10 +250,10 @@ class NACCLongitudinalDataset(Dataset):
                 continue # all zero ignore
 
         # return parts
-        di, dim, dv, dvm, tp, out = zip(*dataset)
+        di, dim, dv, dvm, tp, tm, out = zip(*dataset)
 
         # process already divides by 30; don't do it twice
-        return di, dim, dv, dvm, tp, out
+        return di, dim, dv, dvm, tp, tm, out
 
     def __len__(self):
         return len(self.data)
@@ -260,9 +261,9 @@ class NACCLongitudinalDataset(Dataset):
 
 # d = NACCLongitudinalDataset("./investigator_nacc57.csv",
 #                             "./features/combined")
-# len(d)
+# d[10]
 # vd = d.val()
-# d[0]
+# vd[-2]
 # vd[-2]
 
 

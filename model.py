@@ -33,25 +33,28 @@ class NACCTemporal(nn.Module):
 
         return pe
 
-    def forward(self, xs, temporal, temporal_mask):
+    def forward(self, xs, x, temporal,
+                prediction_timestamp, temporal_mask):
+
+
         # copy down the relavent parts of the position embeddings
         embs = self._posembds.to(temporal.device)[temporal.int()] # (batches, pad_length, model_dim)
+        final_emb = self._posembds.to(temporal.device)[prediction_timestamp.int()]
 
         # add it to the input
         net = xs + embs
+        # concatenate with the non-temporal data + the <cls> final embedding
+        net = torch.cat([x.unsqueeze(1), net, final_emb.unsqueeze(1)], dim=1)
+        # concatenate non-padding to the beginning and end as they are indeed not padding
+        false_mask = torch.zeros((temporal_mask.shape[0],1)).bool().to(temporal_mask.device)
+        temporal_mask = torch.cat([false_mask, temporal_mask, false_mask], dim=1)
 
-        # create backplate
-        shape = xs.shape
-        backplate = torch.zeros((shape[0], shape[-1])).to(xs.device)
-        
-        # transformerify only the available part
-        net = self.encoder(xs[~temporal_mask.all(dim=1)].transpose(0,1),
-                           src_key_padding_mask=temporal_mask[~temporal_mask.all(dim=1)]).transpose(0,1)
-        aggregate = net.mean(dim=1)
-        backplate[~temporal_mask.all(dim=1)] = aggregate
+        # transformerify 
+        net = self.encoder(net.transpose(0,1),
+                           src_key_padding_mask=temporal_mask).transpose(0,1)
 
-        # average the sequence information
-        return backplate
+        # like in a Bert, we will always use the last token (cls) as the embedding we seek
+        return net[:, -1]
         
 class NACCFeatureExtraction(nn.Module):
 
@@ -120,6 +123,7 @@ class NACCModel(nn.Module):
                 feats_temporal, mask_temporal,
                 timestamps,
                 padding_mask, # True if its padding
+                prediction_timestamp, # the timestamps which the labels are at
                 labels=None):
 
         # forward pass the input as one large batch
@@ -139,10 +143,12 @@ class NACCModel(nn.Module):
         temporal_features = input_features[:, 1:]
 
         # process the temporal features by another set of self attention
-        temporal_features = self.temporal(temporal_features, timestamps, padding_mask)
+        temporal_features = self.temporal(temporal_features, inv_features,
+                                          timestamps, prediction_timestamp,
+                                          padding_mask)
 
         # fuse together and postprocess with a FFNN
-        net = self.ffnn(temporal_features + inv_features)
+        net = self.ffnn(temporal_features)
 
         loss = None
         if labels is not None:

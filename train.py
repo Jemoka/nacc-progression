@@ -54,7 +54,7 @@ CONFIG = {
 
 
 ONLINE = False
-ONLINE = True
+# ONLINE = True
 
 run = wandb.init(project="nacc-temporal",
                  entity="jemoka", config=CONFIG, mode=("online" if ONLINE else "disabled"))
@@ -72,11 +72,11 @@ FEATURESET = config.featureset
 # initialize the device
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
-dataset = NACCLongitudinalDataset("./investigator_nacc57.csv",
-                                  f"./features/{FEATURESET}", fold=FOLD)
+# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv",
+#                                   f"./features/{FEATURESET}", fold=FOLD)
 
 def collate_fn(data):
-    di, dim, dv, dvm, tp, out = zip(*data)
+    di, dim, dv, dvm, tp, tm, out = zip(*data)
 
     # invariant data can just be stacked
     inv_data = torch.stack(di)
@@ -93,7 +93,7 @@ def collate_fn(data):
     # calculate which of the samples is padding only
     is_pad = var_mask.all(dim=2)
 
-    return inv_data, inv_mask, var_data, var_mask, timestamps, is_pad, out
+    return inv_data, inv_mask, var_data, var_mask, timestamps, is_pad, torch.stack(tm), out
 
 class ValDataset(Dataset):
     def __init__(self, dataset):
@@ -111,6 +111,7 @@ validation_loader = DataLoader(validation_set, batch_size=BATCH_SIZE, shuffle=Tr
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
 
 # a = next(iter(dataloader))
+# a
 
 # if not MODEL:
 model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)

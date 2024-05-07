@@ -11,8 +11,8 @@ class NACCTemporal(nn.Module):
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=nlayers, enable_nested_tensor=False)
 
         # precompute position embeddings
-        # we assume that no samples span more than 20 years
-        self._posembds = self.__positionalencoding1d(hidden, 20)
+        # we assume that no samples span more than 50 years
+        self._posembds = self.__positionalencoding1d(hidden, 50)
 
     @staticmethod
     def __positionalencoding1d(d_model, length_max):

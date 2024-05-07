@@ -88,6 +88,7 @@ class NACCLongitudinalDataset(Dataset):
 
         # drop the columns that are irrelavent to us (i.e. not the labels above)
         data = data[data.current_target != -1]
+        data = data[data.NACCAGE > 65]
         # data.current_target.value_counts()
 
         #### FUTURE PREDICTION TARGETS ####
@@ -100,11 +101,13 @@ class NACCLongitudinalDataset(Dataset):
 
             if converted:
                 res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
-                        sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        # sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        sorted.iloc[:j+1].NACCAGE-65) for j in crops
                     if sorted.iloc[j-1].current_target > sorted.iloc[j].current_target]
             else:
                 res = [(sorted.iloc[:j], sorted.iloc[j].current_target,
-                        sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        # sorted.iloc[:j+1].NACCAGE-sorted.iloc[0].NACCAGE) for j in crops
+                        sorted.iloc[:j+1].NACCAGE-65) for j in crops
                     if sorted.iloc[j-1].current_target <= sorted.iloc[j].current_target]
 
             if len(res) == 0:
@@ -261,6 +264,9 @@ class NACCLongitudinalDataset(Dataset):
 
 # d = NACCLongitudinalDataset("./investigator_nacc57.csv",
 #                             "./features/combined")
+# d
+# max([max(i[4]) for i in tqdm(d) if len(i[4]) > 0])
+
 # d[10]
 # vd = d.val()
 # vd[-2]

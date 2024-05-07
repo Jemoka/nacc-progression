@@ -50,6 +50,7 @@ CONFIG = {
 
     "nlayers": 3,
     "hidden": 512,
+    "type": "transformer",
 }
 
 
@@ -114,7 +115,9 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn
 # a
 
 # if not MODEL:
-model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
+if config.type == "transformer":
+    model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
+ 
 # else:
 #     model = NACCModel(dataset._num_features, 3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
 #     model.load_state_dict(torch.load(os.path.join(f"./models/{MODEL}", "model.save"), map_location=DEVICE))

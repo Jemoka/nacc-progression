@@ -36,6 +36,7 @@ import random
 
 # model
 from model import NACCModel
+from model_lstm import NACCLSTMModel
 # from model_legacy import NACCModel
 from dataset import *
 
@@ -50,7 +51,7 @@ CONFIG = {
 
     "nlayers": 3,
     "hidden": 512,
-    "type": "transformer",
+    "type": "lstm",
 }
 
 
@@ -115,8 +116,10 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn
 # a
 
 # if not MODEL:
-if config.type == "transformer":
+if config.type.lower() == "transformer":
     model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
+elif config.type.lower() == "lstm":
+    model = NACCLSTMModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
  
 # else:
 #     model = NACCModel(dataset._num_features, 3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)

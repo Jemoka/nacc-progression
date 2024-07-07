@@ -45,14 +45,14 @@ CONFIG = {
     "fold": 0,
     # "featureset": "neuralpsych-v2",
     "featureset": "combined",
-    "batch_size": 16,
-    "lr": 1e-5,
+    "batch_size": 32,
+    "lr": 0.000005,
     "epochs": 55,
 
     "nlayers": 3,
     "hidden": 512,
     "type": "lstm",
-    "one_to_three": False,
+    "one_to_three": True,
 }
 
 

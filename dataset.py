@@ -44,7 +44,7 @@ class NACCLongitudinalDataset(Dataset):
 
     def __init__(self, data_path, feature_path,
               # skipping 2 impaired because of labeling inconsistency
-                 target_indicies=[1,3,4], fold=0):
+                 target_indicies=[1,3,4], fold=0, one_to_three=False):
         """The NeuralPsycology Dataset
 
         Arguments:
@@ -62,6 +62,7 @@ class NACCLongitudinalDataset(Dataset):
         #### OPS ####
         # load the data
         data = pd.read_csv(data_path)
+        self.raw = data
 
         # get the fature variables
         with open(feature_path, 'r') as f:
@@ -110,6 +111,10 @@ class NACCLongitudinalDataset(Dataset):
                         sorted.iloc[:j+1].NACCAGE-65) for j in crops
                     if sorted.iloc[j-1].current_target <= sorted.iloc[j].current_target]
 
+
+            if one_to_three:
+                res = [i for i in res
+                       if (i[2].iloc[-1] - i[2].iloc[0]) <= 3]
 
             if len(res) == 0:
                 return None
@@ -262,8 +267,6 @@ class NACCLongitudinalDataset(Dataset):
         return len(self.data)
 
 
-# d = NACCLongitudinalDataset("./investigator_nacc57.csv",
-#                             "./features/combined")
 # d[0]
 # max([max(i[4]) for i in tqdm(d) if len(i[4]) > 0])
 

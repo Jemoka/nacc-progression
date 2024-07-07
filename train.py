@@ -52,6 +52,7 @@ CONFIG = {
     "nlayers": 3,
     "hidden": 512,
     "type": "lstm",
+    "one_to_three": False,
 }
 
 
@@ -75,7 +76,8 @@ FEATURESET = config.featureset
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
 dataset = NACCLongitudinalDataset("./investigator_nacc57.csv",
-                                  f"./features/{FEATURESET}", fold=FOLD)
+                                  f"./features/{FEATURESET}", fold=FOLD,
+                                  one_to_three=config.one_to_three)
 
 def collate_fn(data):
     di, dim, dv, dvm, tp, tm, out = zip(*data)

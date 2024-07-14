@@ -48,7 +48,7 @@ class NACCTemporalLSTM(nn.Module):
 
         # if we have no temporal data, we skip all the LSTM
         if (sum(seq_lens) == 0).all():
-            return x + out_temporal_embs
+            return x # + out_temporal_embs
 
         # packem!
         packed = pack_padded_sequence(xs[seq_lens > 0], seq_lens[seq_lens > 0].cpu().tolist(),
@@ -72,7 +72,7 @@ class NACCTemporalLSTM(nn.Module):
         res[seq_lens > 0] = out
         res[seq_lens <= 0] = x[seq_lens <= 0] 
         # add final output temporal embeddings
-        res += out_temporal_embs
+        # res += out_temporal_embs
 
         # and return everything we got
         return res
@@ -126,12 +126,10 @@ class NACCLSTMModel(nn.Module):
 
         # prediction network
         self.ffnn = nn.Sequential(
-            nn.Dropout(0.5),
+            nn.Dropout(0.1),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
-            nn.Linear(hidden, hidden),
-            nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.LayerNorm(hidden),
             nn.Linear(hidden, num_classes),
             nn.Softmax(1)
         )
@@ -169,7 +167,7 @@ class NACCLSTMModel(nn.Module):
                                           padding_mask)
 
         # fuse together and postprocess with a FFNN
-        net = self.ffnn(temporal_features)
+        net = self.ffnn(temporal_features + inv_features)
 
         loss = None
         if labels is not None:

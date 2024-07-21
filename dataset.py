@@ -201,32 +201,21 @@ class NACCLongitudinalDataset(Dataset):
         datas = torch.stack(datas)
         masks = torch.stack(masks)
 
-        # check if all elements of the tensor are all equal to each other across time
-        # this is the "time invariant" samples
-        time_invariance = torch.all(datas.T.roll(shifts=(0,1), dims=(0,1)) == datas.T, dim=1)
-
         # get the time invariant samples as a seperate set (data 1)
-        data_inv = datas[0].clone()
-        data_inv_mask = masks[0].clone()
+        data_inv = datas[-1].clone()
+        data_inv_mask = masks[-1].clone()
 
         # and mask out the time invariant data from timeseries
-        data_var = datas.clone()
-        data_var = torch.nan_to_num((data_var-data_inv)/(data_var.std(dim=0)), 0)
-        data_var[masks] = 0.00
-        data_var_mask = masks.clone() 
-        data_var_mask[:, time_invariance] = True
+        data_var = (datas.clone()-data_inv)[:-1]
+        data_var_mask = masks[:-1]
 
-        # filter out any data which is all zero
-        var_mask = ~data_var_mask.all(dim=1)
-        data_var = data_var[var_mask][1:]
-        data_var_mask = data_var_mask[var_mask][1:]
-        
         # seed the one-hot vector
         one_hot_target = [0 for _ in range(3)]
         # and set it
         one_hot_target[int(target)] = 1
         times = torch.tensor(temporal.tolist()).float()
-        temporal = times[:-1][var_mask][1:]
+        # second to last sample is our inv sample; last is our target
+        temporal = times[:-2]
 
         return data_inv, data_inv_mask, data_var, data_var_mask, temporal, times[-1], one_hot_target
 

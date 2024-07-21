@@ -37,6 +37,7 @@ import random
 # model
 from model import NACCModel
 from model_lstm import NACCLSTMModel
+from modeL_latefuse import NACCFuseModel
 # from model_legacy import NACCModel
 from dataset import *
 
@@ -51,7 +52,7 @@ CONFIG = {
 
     "nlayers": 3,
     "hidden": 512,
-    "type": "lstm",
+    "type": "fuse",
     "one_to_three": True,
 }
 
@@ -122,6 +123,10 @@ if config.type.lower() == "transformer":
     model = NACCModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
 elif config.type.lower() == "lstm":
     model = NACCLSTMModel(3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
+elif config.type.lower() == "fuse":
+    model = NACCFuseModel(num_classes=3, num_features=dataset[0][0].shape[0],
+                          nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
+ 
  
 # else:
 #     model = NACCModel(dataset._num_features, 3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)

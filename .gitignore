@@ -18,3 +18,4 @@ wandb
 /attention_analysis_data.bin
 /pretrain/.DS_Store
 pretrain
+/results/

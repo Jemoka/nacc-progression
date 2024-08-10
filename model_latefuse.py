@@ -106,11 +106,19 @@ class NACCFuseModel(nn.Module):
         # initial feature extraction system
         self.extraction = NACCFeatureExtraction(nhead, nlayers, hidden)
         self.temporal = NACCTemporalLSTM(nlayers, num_features)
+        self.hidden = hidden
 
         # create a mapping between feature and hidden space
         # so temporal can be fused with hidden
         # we don't have bias to ensure zeros stay zeros
         self.proj = nn.Linear(num_features, hidden, bias=False)
+
+        # mix attention projection
+        self.offset = nn.Parameter(torch.rand(1), requires_grad=True)
+
+        self.Q_proj = nn.Linear(hidden, hidden, bias=False)
+        self.K_proj = nn.Linear(hidden, hidden, bias=False)
+        self.V_proj = nn.Linear(hidden, hidden, bias=False)
 
         # prediction network
         self.ffnn = nn.Sequential(
@@ -140,7 +148,21 @@ class NACCFuseModel(nn.Module):
                                           padding_mask)
 
         # late fuse and predict
-        fused = self.proj(temporal_encoding) + invariant_encoding
+        # apply a learned offset shift to the temporal data
+        # we do this instead of bias to ensure that each slot
+        # recieves the same offset value if no temporal
+        temporal_encoding = self.proj(temporal_encoding)
+        offset_encoding = temporal_encoding + self.offset[0]
+        paired_seq = torch.stack([invariant_encoding, offset_encoding], dim=-2)
+
+        Q = self.Q_proj(paired_seq)
+        K = self.K_proj(paired_seq)
+        V = self.V_proj(paired_seq)
+
+        attn_scores = (torch.einsum("blh,bsh -> bls", Q, K)/
+                       (self.hidden**0.5)).softmax(dim=-1)
+        fused = (attn_scores @ V).sum(dim=-2)
+
         net = self.ffnn(fused)
 
         loss = None

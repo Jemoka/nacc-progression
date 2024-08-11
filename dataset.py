@@ -255,24 +255,50 @@ class NACCLongitudinalDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+# from scipy.stats import pearsonr
 
-# d[0]
-# max([max(i[4]) for i in tqdm(d) if len(i[4]) > 0])
+# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv", "./features/combined")
 
-# d[10]
-# vd = d.val()
-# vd[-2]
-# vd[-2]
+# results = []
+# for i in tqdm(dataset):
+#     di, _, dv, *res = i
 
+#     if dv.size(0) < 4:
+#         continue
 
-# torch.tensor(vd[-1]).argmax(dim=1)
+#     split = dv.split(2)
+#     split = split if split[-1].shape[0] == split[0].shape[0] else split[:-1]
+#     split = torch.stack(split)
 
-# r = d[0]
-# r 
+#     normalized_difference = (split[:,1,:]-split[:,0,:]) / (dv.std(dim=-2) + 1e-12)
+#     split = normalized_difference.split(2)
+#     split = split if split[-1].shape[0] == split[0].shape[0] else split[:-1]
+#     split = torch.stack(split)
 
-# d[123][0][d[123][1]]
-# d.val()
-# len(d)
-# # len(d)
-# d[10][0].shape
+#     final_difference = (split[:,1,:]-split[:,0,:])
+#     mean_difference = final_difference.mean().item()
+#     prediction = res[-1].index(1)
+
+#     results.append([mean_difference, prediction])
+
+# len(results) # 5795 / 22640 had more than 4 samples
+
+# result = pearsonr([i[0] for i in results],
+#                   [i[1] for i in results])
+# result.pvalue # yes 0.0442
+
+# result = pearsonr([i[0] for i in results],
+#                   [i[1] == 2 for i in results])
+# result.pvalue # yes 0.079
+
+# result = pearsonr([i[0] for i in results],
+#                   [i[1] == 0 for i in results])
+# result.pvalue # yes 0.075
+
+# result = pearsonr([i[0] for i in results],
+#                   [i[1] == 1 for i in results])
+# result.pvalue # no 0.843
+
+# sum(i[1] == 1 for i in results) # yet this is 1702
+
 

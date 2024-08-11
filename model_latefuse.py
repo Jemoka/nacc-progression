@@ -111,14 +111,11 @@ class NACCFuseModel(nn.Module):
         # create a mapping between feature and hidden space
         # so temporal can be fused with hidden
         # we don't have bias to ensure zeros stay zeros
-        self.proj = nn.Linear(num_features, hidden, bias=False)
+        self.proj = nn.Linear(num_features, hidden, bias=True)
 
         # mix attention projection
-        self.offset = nn.Parameter(torch.rand(1), requires_grad=True)
-
-        self.Q_proj = nn.Linear(hidden, hidden, bias=False)
-        self.K_proj = nn.Linear(hidden, hidden, bias=False)
-        self.V_proj = nn.Linear(hidden, hidden, bias=False)
+        self.feature_offset = nn.Parameter(torch.rand(hidden), requires_grad=True)
+        self.mix_projection = nn.Linear(hidden, 1, bias=False)
 
         # prediction network
         self.ffnn = nn.Sequential(
@@ -152,16 +149,13 @@ class NACCFuseModel(nn.Module):
         # we do this instead of bias to ensure that each slot
         # recieves the same offset value if no temporal
         temporal_encoding = self.proj(temporal_encoding)
-        offset_encoding = temporal_encoding + self.offset[0]
-        paired_seq = torch.stack([invariant_encoding, offset_encoding], dim=-2)
 
-        Q = self.Q_proj(paired_seq)
-        K = self.K_proj(paired_seq)
-        V = self.V_proj(paired_seq)
+        offsets = self.feature_offset.sigmoid()
+        mix = self.mix_projection(temporal_encoding).squeeze(-1).sigmoid()
 
-        attn_scores = (torch.einsum("blh,bsh -> bls", Q, K)/
-                       (self.hidden**0.5)).softmax(dim=-1)
-        fused = (attn_scores @ V).sum(dim=-2)
+        mixed_invariants = torch.einsum("b,bh -> bh", 1-mix, invariant_encoding*offsets)
+        mixed_temporal = torch.einsum("b,bh -> bh", mix, temporal_encoding)
+        fused = mixed_invariants + mixed_temporal
 
         net = self.ffnn(fused)
 

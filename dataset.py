@@ -66,8 +66,12 @@ class NACCLongitudinalDataset(Dataset):
 
         # get the fature variables
         with open(feature_path, 'r') as f:
-            lines = f.readlines()
-            features = list(sorted(set([i.strip() for i in lines])))
+            features = f.read().split("\n\n")
+            features = [[j for j in i.split("\n") if j.strip() != "" and j.strip()[0] != "#"]
+                        for i in features]
+            grouped_features = [i for i in features if len(i) != 0]
+        features = list(set([j for i in grouped_features 
+                    for j in i if j.strip() != ""]))
 
         #### CURRENT PREDICTION TARGETS ####
         # construct the artificial target 
@@ -169,9 +173,8 @@ class NACCLongitudinalDataset(Dataset):
         train_participants = [participants[i] for i in train_ids]
         test_participants = [participants[i] for i in test_ids]
 
-        # calculate number of features
-        self._num_features = len(features)
-        # we add 1 for dummy variable used for fine tuning later
+        # calculate number of features, including aurgment features
+        self._num_features = len(features)+len(grouped_features)
 
         # crop the data for validatino
         self.val_data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in test_participants]
@@ -181,6 +184,24 @@ class NACCLongitudinalDataset(Dataset):
         self.data = [i[0][features] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
         self.targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
         self.temporal = [i[2] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
+
+        concat = pd.concat(self.data)[features]
+        self.means = concat.mean()
+        self.stds = concat.std()
+
+        def process(x):
+            partial = ((x-self.means.loc[x.index])/self.stds.loc[x.index])
+            partial[(x < 0) | (x > 80)] = -1
+            return partial
+
+        def norm(x):
+            group = sum([x[j].std() for j in grouped_features])/len(grouped_features)
+            return pd.concat([x, pd.Series({"igv": group})])
+
+        self.data = [i.apply(process, axis=1) for i in self.data]
+        self.val_data = [i.apply(process, axis=1) for i in self.val_data]
+        self.data = [i.apply(norm, axis=1) for i in self.data]
+        self.val_data = [i.apply(norm, axis=1) for i in self.val_data]
 
     def __process_sample(self, data):
         data = data.copy()

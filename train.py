@@ -45,7 +45,7 @@ from dataset import *
 CONFIG = {
     "fold": 0,
     # "featureset": "neuralpsych-v2",
-    "featureset": "combined",
+    "featureset": "split",
     "batch_size": 8,
     "lr": 0.000005,
     "epochs": 55,

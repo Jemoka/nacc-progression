@@ -119,10 +119,10 @@ class NACCFuseModel(nn.Module):
 
         # prediction network
         self.ffnn = nn.Sequential(
-            nn.Dropout(0.1),
+            nn.Dropout(0.5),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
-            nn.LayerNorm(hidden),
+            # nn.LayerNorm(hidden),
             nn.Linear(hidden, num_classes),
             nn.Softmax(1)
         )

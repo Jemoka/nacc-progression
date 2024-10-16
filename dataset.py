@@ -185,7 +185,7 @@ class NACCLongitudinalDataset(Dataset):
         self.targets = [i[1] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
         self.temporal = [i[2] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
 
-        concat = pd.concat(self.data)[features]
+        concat = pd.concat([i for indx, i in enumerate(self.data) if self.targets[indx] == 0])[features]
         self.means = concat.mean()
         self.stds = concat.std()
 

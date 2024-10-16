@@ -47,11 +47,11 @@ CONFIG = {
     # "featureset": "neuralpsych-v2",
     "featureset": "split",
     "batch_size": 8,
-    "lr": 0.000005,
+    "lr": 1e-4,
     "epochs": 55,
 
-    "nlayers": 3,
-    "hidden": 2048,
+    "nlayers": 2,
+    "hidden": 1024,
     "type": "fuse",
     "one_to_three": True,
 }

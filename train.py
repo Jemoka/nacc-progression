@@ -46,8 +46,8 @@ CONFIG = {
     "fold": 0,
     # "featureset": "neuralpsych-v2",
     "featureset": "split",
-    "batch_size": 8,
-    "lr": 1e-4,
+    "batch_size": 4,
+    "lr": 5e-5,
     "epochs": 55,
 
     "nlayers": 2,
@@ -58,7 +58,7 @@ CONFIG = {
 
 
 ONLINE = False
-# ONLINE = True
+ONLINE = True
 
 run = wandb.init(project="nacc-temporal",
                  entity="jemoka", config=CONFIG, mode=("online" if ONLINE else "disabled"))
@@ -132,7 +132,7 @@ elif config.type.lower() == "fuse":
 #     model = NACCModel(dataset._num_features, 3, nlayers=config.nlayers, hidden=config.hidden).to(DEVICE)
 #     model.load_state_dict(torch.load(os.path.join(f"./models/{MODEL}", "model.save"), map_location=DEVICE))
 
-optimizer = AdamW(model.parameters(), lr=LR, weight_decay=1e-5)
+optimizer = AdamW(model.parameters(), lr=LR, weight_decay=0.1)
 # scheduler = StepLR(optimizer, step_size=8, gamma=0.75)
 
 run.watch(model)

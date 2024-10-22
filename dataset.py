@@ -195,8 +195,8 @@ class NACCLongitudinalDataset(Dataset):
             return partial
 
         def norm(x):
-            group = sum([x[j].std() for j in grouped_features])/len(grouped_features)
-            return pd.concat([x, pd.Series({"igv": group})])
+            group = [x[j].std() for j in grouped_features]
+            return pd.concat([x, pd.Series({f"igv_{indx}": i for indx, i in enumerate(group)})])
 
         self.data = [i.apply(process, axis=1) for i in self.data]
         self.val_data = [i.apply(process, axis=1) for i in self.val_data]

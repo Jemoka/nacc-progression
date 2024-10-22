@@ -222,13 +222,26 @@ class NACCLongitudinalDataset(Dataset):
         datas = torch.stack(datas)
         masks = torch.stack(masks)
 
+        # check if all elements of the tensor are all equal to each other across time
+        # this is the "time invariant" samples
+        time_invariance = torch.any(datas.T.roll(shifts=(0,1), dims=(0,1)) == datas.T, dim=1)
+
         # get the time invariant samples as a seperate set (data 1)
-        data_inv = datas[-1].clone()
-        data_inv_mask = masks[-1].clone()
+        data_inv = datas[0].clone()
+        data_inv_mask = masks[0].clone()
+        data_inv[~time_invariance] = 0.00
+        data_inv_mask[~time_invariance] = True
 
         # and mask out the time invariant data from timeseries
-        data_var = (datas.clone()-data_inv)[:-1]
-        data_var_mask = masks[:-1]
+        data_var = datas.clone()
+        data_var[:, time_invariance] = 0.00
+        data_var_mask = masks.clone() 
+        data_var_mask[:, time_invariance] = True
+
+        # filter out any data which is all zero
+        var_mask = ~data_var_mask.all(dim=1)
+        data_var = data_var[var_mask]
+        data_var_mask = data_var_mask[var_mask]
 
         # seed the one-hot vector
         one_hot_target = [0 for _ in range(3)]
@@ -276,9 +289,29 @@ class NACCLongitudinalDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-# from scipy.stats import pearsonr
+# # from scipy.stats import pearsonr
 
-# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv", "./features/combined")
+# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv", "./features/split")
+# val = dataset.val()
+# print(dataset[0])
+
+# print([val[0][i][-8:] for i in range(20)],"\n\n\n\n", [dataset[i][0][-8:] for i in range(20)])
+# print()
+# # print([val[2][i][-8:] for i in [0,1,2,3]])
+
+# val[0][0][-8:]
+
+
+# dataset[0]
+
+
+# # dataset[0]
+# val = dataset.val()
+
+# d1 = val[0]
+
+# [dataset[i][0][-2:] for i in [0,1,3,4,5]]
+# [d1[i][-2:] for i in [0,1,3,4,5]]
 
 # results = []
 # for i in tqdm(dataset):

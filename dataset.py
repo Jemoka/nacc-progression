@@ -248,10 +248,9 @@ class NACCLongitudinalDataset(Dataset):
         # and set it
         one_hot_target[int(target)] = 1
         times = torch.tensor(temporal.tolist()).float()
-        # second to last sample is our inv sample; last is our target
-        temporal = times[:-2]
+        temporal = times[:-1]
 
-        return data_inv, data_inv_mask, data_var, data_var_mask, temporal, times[-1], one_hot_target
+        return data_inv, data_inv_mask, data_var, data_var_mask, temporal[var_mask], times[-1], one_hot_target
 
     def __getitem__(self, index):
         # index the data

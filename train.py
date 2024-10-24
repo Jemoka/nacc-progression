@@ -58,7 +58,7 @@ CONFIG = {
 
 
 ONLINE = False
-ONLINE = True
+# ONLINE = True
 
 run = wandb.init(project="nacc-temporal",
                  entity="jemoka", config=CONFIG, mode=("online" if ONLINE else "disabled"))

@@ -186,10 +186,19 @@ class NACCLongitudinalDataset(Dataset):
         self.temporal = [i[2] for i in res_data if i[0].NACCID.iloc[0] in train_participants]
 
         concat = pd.concat([i for indx, i in enumerate(self.data) if self.targets[indx] == 0])[features]
+        res = {i : list(filter(lambda x:x>0, concat[i].tolist())) for i in concat.columns}
+        import ipdb
+        ipdb.set_trace()
+
+        #.apply(lambda x:x[x > 0])
         self.means = concat.mean()
         self.stds = concat.std()
 
         def process(x):
+            import ipdb
+            ipdb.set_trace()
+
+
             partial = ((x-self.means.loc[x.index])/self.stds.loc[x.index])
             partial[(x < 0) | (x > 80)] = -1
             return partial
@@ -288,9 +297,20 @@ class NACCLongitudinalDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+
+# import pickle
+# with open("./data.bin", 'rb') as df:
+    # data = pickle.load(df)
+
+# val = data.val()
+
+# dist_train = [i[0][-1] for i in data]
+# dist_dev = [i[-1] for i in val[0]]
+# breakpoint()
+
 # # from scipy.stats import pearsonr
 
-# dataset = NACCLongitudinalDataset("./investigator_nacc57.csv", "./features/split")
+dataset = NACCLongitudinalDataset("./investigator_nacc57.csv", "./features/split")
 # val = dataset.val()
 # print(dataset[0])
 
